@@ -23,6 +23,7 @@ from som.interpreter.ast.nodes.specialized.literal_if import (
     IfInlinedNode,
     IfElseInlinedNode,
 )
+from som.interpreter.ast.nodes.specialized.literal_to_do import ToDoInlined
 from som.interpreter.ast.nodes.specialized.literal_while import WhileInlinedNode
 from som.interpreter.ast.nodes.variable_node import (
     UninitializedReadNode,
@@ -493,7 +494,7 @@ def test_to_do_block_block_inlined_self(cgenc, mgenc):
               b ifTrue: [ l2 := l2 + 1 ] ] ]
         )""",
     )
-    block_a = ast._exprs[0]._arg_exprs[1]._value.invokable.expr_or_sequence
+    block_a = ast._exprs[0]._do_expr
     block_b_if_true = block_a._arg_exprs[0]._value.invokable.expr_or_sequence
 
     read_node = block_b_if_true._condition_expr
@@ -502,13 +503,13 @@ def test_to_do_block_block_inlined_self(cgenc, mgenc):
     assert read_node.var.idx == 1
 
     write_node = block_b_if_true._body_expr
-    assert write_node._context_level == 2
+    assert write_node._context_level == 1
     assert write_node._var._name == "l2"
     assert write_node._var.idx == 1
 
     assert isinstance(write_node._value_expr, IntIncrementNode)
     read_l2_node = write_node._value_expr._rcvr_expr
-    assert read_l2_node._context_level == 2
+    assert read_l2_node._context_level == 1
     assert read_l2_node.var._name == "l2"
     assert read_l2_node.var.idx == 1
 
@@ -538,3 +539,11 @@ def test_inlining_of_or(mgenc, or_sel):
     )
 
     assert isinstance(ast._exprs[0], OrInlinedNode)
+
+
+def test_inlining_of_to_do(mgenc):
+    ast = parse_method(mgenc, "test = ( 1 to: 2 do: [:i | i ] )")
+
+    assert isinstance(ast._exprs[0], ToDoInlined)
+    to_do = ast._exprs[0]
+    assert to_do._idx_var._name == "i"

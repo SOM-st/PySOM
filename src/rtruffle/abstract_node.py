@@ -62,7 +62,8 @@ def _generate_adapt_after_inlining(cls):
                         n.adapt_after_inlining(mgenc)
             else:
                 current = getattr(node, child_slot)
-                current.adapt_after_inlining(mgenc)
+                if current is not None:
+                    current.adapt_after_inlining(mgenc)
         node.handle_inlining(mgenc)
 
     cls.adapt_after_inlining = _adapt_after_inlining
@@ -83,7 +84,10 @@ def _generate_adapt_after_outer_inlined(cls):
                         )
             else:
                 current = getattr(node, child_slot)
-                current.adapt_after_outer_inlined(removed_ctx_level, mgenc_with_inlined)
+                if current is not None:
+                    current.adapt_after_outer_inlined(
+                        removed_ctx_level, mgenc_with_inlined
+                    )
         node.handle_outer_inlined(removed_ctx_level, mgenc_with_inlined)
 
     cls.adapt_after_outer_inlined = _adapt_after_outer_inlined

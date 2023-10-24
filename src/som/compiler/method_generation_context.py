@@ -83,13 +83,13 @@ class MethodGenerationContextBase(object):
         self._locals[local_name] = result
         return result
 
-    def inline_locals(self, local_vars):
+    def inline_as_locals(self, variables):
         fresh_copies = []
-        for local in local_vars:
-            fresh_copy = local.copy_for_inlining(len(self._locals))
+        for var in variables:
+            fresh_copy = var.copy_for_inlining(len(self._locals))
             if fresh_copy:
                 # fresh_copy can be None, because we don't need the $blockSelf
-                name = local.get_qualified_name()
+                name = var.get_qualified_name()
                 assert name not in self._locals
                 self._locals[name] = fresh_copy
                 fresh_copies.append(fresh_copy)
@@ -212,10 +212,13 @@ class MethodGenerationContextBase(object):
         self.signature = symbol_for(block_sig)
 
     def merge_into_scope(self, scope_to_be_inlined):
-        assert len(scope_to_be_inlined.arguments) == 1
+        arg_vars = scope_to_be_inlined.arguments
+        if len(arg_vars) > 1:
+            self.inline_as_locals(arg_vars)
+
         local_vars = scope_to_be_inlined.locals
         if local_vars:
-            self.inline_locals(local_vars)
+            self.inline_as_locals(local_vars)
 
 
 def _strip_colons_and_source_location(method_name):

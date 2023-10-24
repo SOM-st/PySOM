@@ -4,6 +4,7 @@ from som.compiler.bc.bytecode_generator import (
     emit_push_global,
     emit_push_field_with_index,
 )
+from som.compiler.ast.variable import Argument
 from som.interp_type import is_ast_interpreter
 from som.interpreter.ast.frame import FRAME_AND_INNER_RCVR_IDX
 from som.interpreter.bc.frame import stack_pop_old_arguments_and_push_result
@@ -40,11 +41,12 @@ class AbstractTrivialMethod(AbstractMethod):
 
 
 class LiteralReturn(AbstractTrivialMethod):
-    _immutable_fields_ = ["_value"]
+    _immutable_fields_ = ["_value", "source_section"]
 
-    def __init__(self, signature, value):
-        AbstractTrivialMethod.__init__(self, signature)
+    def __init__(self, signature, value, source_section):
+        AbstractTrivialMethod.__init__(self, signature, None)
         self._value = value
+        self.source_section = source_section
 
     def set_holder(self, value):
         self._holder = value
@@ -70,22 +72,32 @@ class LiteralReturn(AbstractTrivialMethod):
 
     if is_ast_interpreter():
 
-        def inline(self, _mgenc):
+        def inline(self, mgenc, merge_scope=True):  # pylint: disable=unused-argument
             from som.interpreter.ast.nodes.literal_node import LiteralNode
 
-            return LiteralNode(self._value)
+            if merge_scope:
+                self.merge_scope_into(mgenc)
+            return LiteralNode(self._value, self.source_section)
 
     else:
 
-        def inline(self, mgenc):
+        def inline(self, mgenc, merge_scope=True):  # pylint: disable=unused-argument
             emit_push_constant(mgenc, self._value)
+
+    def merge_scope_into(self, mgenc):
+        mgenc.inline_as_locals([Argument("$inlinedI", 1, self.source_section)])
+
+    def get_argument(self, idx, ctx_level):
+        if idx == 1 and ctx_level == 0:
+            return Argument("$inlinedI", idx, self.source_section)
+        raise Exception("This should not happen")
 
 
 class GlobalRead(AbstractTrivialMethod):
     _immutable_fields_ = ["_assoc?", "_global_name", "_context_level", "universe"]
 
     def __init__(self, signature, global_name, context_level, universe, assoc=None):
-        AbstractTrivialMethod.__init__(self, signature)
+        AbstractTrivialMethod.__init__(self, signature, None)
         self._assoc = assoc
         self._global_name = global_name
         self._context_level = context_level
@@ -125,14 +137,14 @@ class GlobalRead(AbstractTrivialMethod):
 
     if is_ast_interpreter():
 
-        def inline(self, mgenc):
+        def inline(self, mgenc, merge_scope=True):  # pylint: disable=unused-argument
             from som.interpreter.ast.nodes.global_read_node import create_global_node
 
             return create_global_node(self._global_name, self.universe, mgenc, None)
 
     else:
 
-        def inline(self, mgenc):
+        def inline(self, mgenc, merge_scope=True):  # pylint: disable=unused-argument
             emit_push_global(mgenc, self._global_name)
 
 
@@ -140,7 +152,7 @@ class FieldRead(AbstractTrivialMethod):
     _immutable_fields_ = ["_field_idx", "_context_level"]
 
     def __init__(self, signature, field_idx, context_level):
-        AbstractTrivialMethod.__init__(self, signature)
+        AbstractTrivialMethod.__init__(self, signature, None)
         self._field_idx = field_idx
         self._context_level = context_level
 
@@ -170,14 +182,14 @@ class FieldRead(AbstractTrivialMethod):
 
     if is_ast_interpreter():
 
-        def inline(self, mgenc):
+        def inline(self, mgenc, merge_scope=True):  # pylint: disable=unused-argument
             from som.interpreter.ast.nodes.field_node import FieldReadNode
 
             return FieldReadNode(mgenc.get_self_read(), self._field_idx, None)
 
     else:
 
-        def inline(self, mgenc):
+        def inline(self, mgenc, merge_scope=True):  # pylint: disable=unused-argument
             emit_push_field_with_index(mgenc, self._field_idx, self._context_level - 1)
 
 
@@ -185,7 +197,7 @@ class FieldWrite(AbstractTrivialMethod):
     _immutable_fields_ = ["_field_idx", "_arg_idx"]
 
     def __init__(self, signature, field_idx, arg_idx):
-        AbstractTrivialMethod.__init__(self, signature)
+        AbstractTrivialMethod.__init__(self, signature, None)
         self._field_idx = field_idx
         self._arg_idx = arg_idx
 

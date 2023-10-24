@@ -6,12 +6,14 @@ class AbstractMethod(AbstractObject):
     _immutable_fields_ = [
         "_signature",
         "_holder",
+        "_lexical_scope",
     ]
 
-    def __init__(self, signature):
+    def __init__(self, signature, lexical_scope):
         AbstractObject.__init__(self)
         self._signature = signature
         self._holder = None
+        self._lexical_scope = lexical_scope
 
     @staticmethod
     def is_primitive():
@@ -21,6 +23,9 @@ class AbstractMethod(AbstractObject):
     def is_invokable():
         """We use this method to identify methods and primitives"""
         return True
+
+    def get_argument(self, idx, ctx_level):
+        return self._lexical_scope.get_argument(idx, ctx_level)
 
     def get_holder(self):
         return self._holder

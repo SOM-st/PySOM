@@ -1379,3 +1379,76 @@ def test_field_read_inlining(cgenc, mgenc):
             Bytecodes.return_self,
         ],
     )
+
+
+def test_inlining_of_to_do(mgenc):
+    bytecodes = method_to_bytecodes(mgenc, "test = ( 1 to: 2 do: [:i | i ] )")
+
+    assert len(bytecodes) == 23
+    check(
+        bytecodes,
+        [
+            Bytecodes.push_1,
+            Bytecodes.push_constant_0,
+            Bytecodes.dup_second,  # stack: Top[1, 2, 1]
+            Bytecodes.nil_local,
+            BC(Bytecodes.jump_if_greater, 17),  # consume only on jump
+            Bytecodes.dup,
+            BC(
+                Bytecodes.pop_local, 0, 0
+            ),  # store the i into the local (arg becomes local after inlining)
+            BC(
+                Bytecodes.push_local, 0, 0
+            ),  # push the local on the stack as part of the block's code
+            Bytecodes.pop,  # cleanup after block.
+            Bytecodes.inc,  # increment top, the iteration counter
+            Bytecodes.nil_local,
+            BC(
+                Bytecodes.jump_backward, 14
+            ),  # jump back to the jump_if_greater bytecode
+            # jump_if_greater target
+            Bytecodes.return_self,
+        ],
+    )
+
+
+def test_to_do_block_block_inlined_self(cgenc, mgenc):
+    add_field(cgenc, "field")
+    bytecodes = method_to_bytecodes(
+        mgenc,
+        """
+        test = (
+          | l1 l2 |
+          1 to: 2 do: [:a |
+            l1 do: [:b |
+              b ifTrue: [
+                a.
+                l2 := l2 + 1 ] ] ]
+        )""",
+    )
+
+    assert len(bytecodes) == 27
+    check(
+        bytecodes,
+        [
+            Bytecodes.push_1,
+            Bytecodes.push_constant_0,
+            Bytecodes.dup_second,
+            Bytecodes.nil_local,
+            BC(Bytecodes.jump_if_greater, 21),
+            Bytecodes.dup,
+            BC(Bytecodes.pop_local, 2, 0),
+            BC(Bytecodes.push_local, 0, 0),
+            BC(Bytecodes.push_block, 2),
+            Bytecodes.send_2,
+            Bytecodes.pop,
+            Bytecodes.inc,
+            Bytecodes.nil_local,
+            BC(Bytecodes.jump_backward, 18),
+            Bytecodes.return_self,
+        ],
+    )
+
+    block_method = mgenc._literals[2]  # pylint: disable=protected-access
+    block_bcs = block_method.get_bytecodes()
+    check(block_bcs, [(6, BC(Bytecodes.push_local, 2, 1)), Bytecodes.pop])

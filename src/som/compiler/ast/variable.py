@@ -147,7 +147,8 @@ class Argument(_Variable):
     def copy_for_inlining(self, idx):
         if self._name == "$blockSelf":
             return None
-        return Argument(self._name, idx, self.source)
+        assert self._name != "self"
+        return Local(self._name, idx, self.source)
 
     def __str__(self):
         return "Argument(" + self._name + " idx: " + str(self.idx) + ")"

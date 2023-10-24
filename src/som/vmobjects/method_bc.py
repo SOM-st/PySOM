@@ -15,6 +15,9 @@ from som.compiler.bc.bytecode_generator import (
     emit_push_field_with_index,
     emit_pop_field_with_index,
     emit3_with_dummy,
+    emit_push_local,
+    emit_pop_local,
+    emit_nil_local,
     compute_offset,
 )
 from som.interpreter.ast.frame import (
@@ -54,7 +57,6 @@ class BcAbstractMethod(AbstractMethod):
         "_arg_inner_access[*]",
         "_size_frame",
         "_size_inner",
-        "_lexical_scope",
         "_inlined_loops[*]",
     ]
 
@@ -71,7 +73,7 @@ class BcAbstractMethod(AbstractMethod):
         lexical_scope,
         inlined_loops,
     ):
-        AbstractMethod.__init__(self, signature)
+        AbstractMethod.__init__(self, signature, lexical_scope)
 
         # Set the number of bytecodes in this method
         self._bytecodes = ["\x00"] * num_bytecodes
@@ -86,8 +88,6 @@ class BcAbstractMethod(AbstractMethod):
         self._arg_inner_access = arg_inner_access
         self._size_frame = size_frame
         self._size_inner = size_inner
-
-        self._lexical_scope = lexical_scope
 
         self._inlined_loops = inlined_loops
 
@@ -187,6 +187,13 @@ class BcAbstractMethod(AbstractMethod):
         elif bc == Bytecodes.pop_local:
             var = self._lexical_scope.get_local(idx, ctx_level)
             self.set_bytecode(bytecode_index, var.get_pop_bytecode(ctx_level))
+        elif bc == Bytecodes.nil_local:
+            var = self._lexical_scope.get_local(idx, 0)
+            if var.is_accessed_out_of_context():
+                bytecode = Bytecodes.nil_inner
+            else:
+                bytecode = Bytecodes.nil_frame
+            self.set_bytecode(bytecode_index, bytecode)
         else:
             raise Exception("Unsupported bytecode?")
         assert (
@@ -252,8 +259,12 @@ class BcMethod(BcAbstractMethod):
             stack, stack_ptr, self._number_of_arguments, result
         )
 
-    def inline(self, mgenc):
+    def merge_scope_into(self, mgenc):
         mgenc.merge_into_scope(self._lexical_scope)
+
+    def inline(self, mgenc, merge_scope=True):
+        if merge_scope:
+            mgenc.merge_into_scope(self._lexical_scope)
         self._inline_into(mgenc)
 
     def _create_back_jump_heap(self):
@@ -306,7 +317,7 @@ class BcMethod(BcAbstractMethod):
             if bytecode == Bytecodes.halt:
                 emit1(mgenc, bytecode, 0)
 
-            elif bytecode == Bytecodes.dup:
+            elif bytecode == Bytecodes.dup or bytecode == Bytecodes.dup_second:
                 emit1(mgenc, bytecode, 1)
 
             elif (
@@ -317,8 +328,23 @@ class BcMethod(BcAbstractMethod):
             ):
                 idx = self.get_bytecode(i + 1)
                 ctx_level = self.get_bytecode(i + 2)
-                assert ctx_level > 0
-                if bytecode == Bytecodes.push_field:
+
+                if ctx_level == 0:
+                    assert (
+                        bytecode == Bytecodes.push_argument
+                        or bytecode == Bytecodes.pop_argument
+                    ), (
+                        "This should really be push or pop argument."
+                        + " everything else should have a ctx_level > 0"
+                    )
+
+                    arg = self._lexical_scope.get_argument(idx, 0)
+                    idx = mgenc.get_inlined_local_idx(arg, 0)
+                    if bytecode == Bytecodes.push_argument:
+                        emit_push_local(mgenc, idx, 0)
+                    else:
+                        emit_pop_local(mgenc, idx, 0)
+                elif bytecode == Bytecodes.push_field:
                     emit_push_field_with_index(mgenc, idx, ctx_level - 1)
                 elif bytecode == Bytecodes.pop_field:
                     emit_pop_field_with_index(mgenc, idx, ctx_level - 1)
@@ -352,6 +378,12 @@ class BcMethod(BcAbstractMethod):
                     emit3(mgenc, bytecode, idx, ctx_level, 1)
                 else:
                     emit3(mgenc, bytecode, idx, ctx_level, -1)
+
+            elif bytecode == Bytecodes.nil_local:
+                idx = self.get_bytecode(i + 1)
+                var = self._lexical_scope.get_local(idx, 0)
+                idx = mgenc.get_inlined_local_idx(var, 0)
+                emit_nil_local(mgenc, idx)
 
             elif bytecode == Bytecodes.push_block:
                 literal_idx = self.get_bytecode(i + 1)
@@ -434,9 +466,11 @@ class BcMethod(BcAbstractMethod):
                 bytecode == Bytecodes.jump
                 or bytecode == Bytecodes.jump_on_true_top_nil
                 or bytecode == Bytecodes.jump_on_false_top_nil
+                or bytecode == Bytecodes.jump_if_greater
                 or bytecode == Bytecodes.jump2
                 or bytecode == Bytecodes.jump2_on_true_top_nil
                 or bytecode == Bytecodes.jump2_on_false_top_nil
+                or bytecode == Bytecodes.jump2_if_greater
             ):
                 # emit the jump, but instead of the offset, emit a dummy
                 idx = emit3_with_dummy(mgenc, bytecode, 0)
@@ -503,6 +537,7 @@ class BcMethod(BcAbstractMethod):
             if (
                 bytecode == Bytecodes.halt
                 or bytecode == Bytecodes.dup
+                or bytecode == Bytecodes.dup_second
                 or bytecode == Bytecodes.push_block_no_ctx
                 or bytecode == Bytecodes.push_constant
                 or bytecode == Bytecodes.push_constant_0
@@ -529,12 +564,14 @@ class BcMethod(BcAbstractMethod):
                 or bytecode == Bytecodes.jump_on_true_pop
                 or bytecode == Bytecodes.jump_on_false_top_nil
                 or bytecode == Bytecodes.jump_on_false_pop
+                or bytecode == Bytecodes.jump_if_greater
                 or bytecode == Bytecodes.jump_backward
                 or bytecode == Bytecodes.jump2
                 or bytecode == Bytecodes.jump2_on_true_top_nil
                 or bytecode == Bytecodes.jump2_on_true_pop
                 or bytecode == Bytecodes.jump2_on_false_top_nil
                 or bytecode == Bytecodes.jump2_on_false_pop
+                or bytecode == Bytecodes.jump2_if_greater
                 or bytecode == Bytecodes.jump2_backward
             ):
                 # don't use context
@@ -551,6 +588,20 @@ class BcMethod(BcAbstractMethod):
                 ctx_level = self.get_bytecode(i + 2)
                 if ctx_level > removed_ctx_level:
                     self.set_bytecode(i + 2, ctx_level - 1)
+                elif ctx_level == removed_ctx_level and (
+                    bytecode == Bytecodes.push_argument
+                    or bytecode == Bytecodes.pop_argument
+                ):
+                    idx = self.get_bytecode(i + 1)
+                    arg = self._lexical_scope.get_argument(idx, removed_ctx_level)
+                    new_idx = mgenc_with_inlined.get_inlined_local_idx(
+                        arg, removed_ctx_level
+                    )
+                    if bytecode == Bytecodes.push_argument:
+                        self.set_bytecode(i, Bytecodes.push_local)
+                    else:
+                        self.set_bytecode(i, Bytecodes.pop_local)
+                    self.set_bytecode(i + 1, new_idx)
 
             elif bytecode == Bytecodes.push_block:
                 literal_idx = self.get_bytecode(i + 1)
@@ -574,6 +625,12 @@ class BcMethod(BcAbstractMethod):
                     self.set_bytecode(i + 1, new_idx)
                 elif ctx_level > removed_ctx_level:
                     self.set_bytecode(i + 2, ctx_level - 1)
+
+            elif bytecode == Bytecodes.nil_local:
+                assert removed_ctx_level > 0, (
+                    "Don't need to adjust this bytecode, "
+                    + "because it only operates on ctx_level==0"
+                )
 
             elif bytecode == Bytecodes.return_non_local:
                 ctx_level = self.get_bytecode(i + 1)
@@ -677,7 +734,7 @@ class BcMethodNLR(BcMethod):
                 )
             raise e
 
-    def inline(self, mgenc):
+    def inline(self, mgenc, merge_scope=True):
         raise Exception(
             "Blocks should never handle non-local returns. "
             "So, this should not happen."

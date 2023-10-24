@@ -24,7 +24,9 @@ from som.interpreter.send import (
 from som.vm.globals import nilObject, trueObject, falseObject
 from som.vmobjects.array import Array
 from som.vmobjects.block_bc import BcBlock
-from som.vmobjects.integer import int_0, int_1
+from som.vmobjects.integer import int_0, int_1, Integer
+from som.vmobjects.double import Double
+
 
 from rlib import jit
 from rlib.jit import promote, elidable_promote, we_are_jitted
@@ -141,6 +143,11 @@ def interpret(method, frame, max_stack_size):
 
         if bytecode == Bytecodes.dup:
             val = stack[stack_ptr]
+            stack_ptr += 1
+            stack[stack_ptr] = val
+
+        elif bytecode == Bytecodes.dup_second:
+            val = stack[stack_ptr - 1]
             stack_ptr += 1
             stack[stack_ptr] = val
 
@@ -323,6 +330,16 @@ def interpret(method, frame, max_stack_size):
 
             write_inner(frame, FRAME_AND_INNER_RCVR_IDX + 2, value)
 
+        elif bytecode == Bytecodes.nil_frame:
+            if we_are_jitted():
+                idx = method.get_bytecode(current_bc_idx + 1)
+                write_frame(frame, idx, nilObject)
+
+        elif bytecode == Bytecodes.nil_inner:
+            if we_are_jitted():
+                idx = method.get_bytecode(current_bc_idx + 1)
+                write_inner(frame, idx, nilObject)
+
         elif bytecode == Bytecodes.pop_field:
             field_idx = method.get_bytecode(current_bc_idx + 1)
             ctx_level = method.get_bytecode(current_bc_idx + 2)
@@ -451,8 +468,6 @@ def interpret(method, frame, max_stack_size):
 
         elif bytecode == Bytecodes.inc:
             val = stack[stack_ptr]
-            from som.vmobjects.integer import Integer
-            from som.vmobjects.double import Double
             from som.vmobjects.biginteger import BigInteger
 
             if isinstance(val, Integer):
@@ -467,8 +482,6 @@ def interpret(method, frame, max_stack_size):
 
         elif bytecode == Bytecodes.dec:
             val = stack[stack_ptr]
-            from som.vmobjects.integer import Integer
-            from som.vmobjects.double import Double
             from som.vmobjects.biginteger import BigInteger
 
             if isinstance(val, Integer):
@@ -534,6 +547,23 @@ def interpret(method, frame, max_stack_size):
             if we_are_jitted():
                 stack[stack_ptr] = None
             stack_ptr -= 1
+
+        elif bytecode == Bytecodes.jump_if_greater:
+            top = stack[stack_ptr]
+            top_2 = stack[stack_ptr - 1]
+            if (
+                isinstance(top, Integer)
+                and isinstance(top_2, Integer)
+                and top.get_embedded_integer() > top_2.get_embedded_integer()
+            ) or (
+                isinstance(top, Double)
+                and isinstance(top_2, Double)
+                and top.get_embedded_double() > top_2.get_embedded_double()
+            ):
+                stack[stack_ptr] = None
+                stack[stack_ptr - 1] = None
+                stack_ptr -= 2
+                next_bc_idx = current_bc_idx + method.get_bytecode(current_bc_idx + 1)
 
         elif bytecode == Bytecodes.jump_backward:
             next_bc_idx = current_bc_idx - method.get_bytecode(current_bc_idx + 1)
@@ -604,6 +634,19 @@ def interpret(method, frame, max_stack_size):
                 stack[stack_ptr] = None
             stack_ptr -= 1
 
+        elif bytecode == Bytecodes.jump2_if_greater:
+            top = stack[stack_ptr]
+            top_2 = stack[stack_ptr - 1]
+            if top.get_embedded_integer() > top_2.get_embedded_integer():
+                stack[stack_ptr] = None
+                stack[stack_ptr - 1] = None
+                stack_ptr -= 2
+                next_bc_idx = (
+                    current_bc_idx
+                    + method.get_bytecode(current_bc_idx + 1)
+                    + (method.get_bytecode(current_bc_idx + 2) << 8)
+                )
+
         elif bytecode == Bytecodes.jump2_backward:
             next_bc_idx = current_bc_idx - (
                 method.get_bytecode(current_bc_idx + 1)
@@ -656,6 +699,10 @@ def interpret(method, frame, max_stack_size):
             # retry bytecode after patching
             next_bc_idx = current_bc_idx
         elif bytecode == Bytecodes.pop_argument:
+            method.patch_variable_access(current_bc_idx)
+            # retry bytecode after patching
+            next_bc_idx = current_bc_idx
+        elif bytecode == Bytecodes.nil_local:
             method.patch_variable_access(current_bc_idx)
             # retry bytecode after patching
             next_bc_idx = current_bc_idx

@@ -29,12 +29,6 @@ class UninitializedReadNode(ExpressionNode):
 
     def handle_inlining(self, mgenc):
         if self._context_level == 0:
-            from som.compiler.ast.variable import Local
-
-            # we got inlined
-            assert isinstance(
-                self.var, Local
-            ), "We are not currently inlining any blocks with arguments"
             self.var = mgenc.get_inlined_local(self.var, 0)
         else:
             self._context_level -= 1
@@ -72,6 +66,9 @@ class UninitializedWriteNode(ExpressionNode):
 
     def execute(self, frame):
         return self._specialize().execute(frame)
+
+    def write_value(self, frame, value):
+        self._specialize().write_value(frame, value)
 
     def _specialize(self):
         return self.replace(
@@ -161,6 +158,9 @@ class NonLocalVariableWriteNode(_NonLocalVariableNode):
         self.determine_block(frame).set_outer(self._frame_idx, value)
         return value
 
+    def write_value(self, frame, value):
+        self.determine_block(frame).set_outer(self._frame_idx, value)
+
 
 class _LocalVariableNode(ExpressionNode):
     _immutable_fields_ = ["_frame_idx"]
@@ -191,6 +191,9 @@ class LocalInnerVarWriteNode(_LocalVariableWriteNode):
         write_inner(frame, self._frame_idx, val)
         return val
 
+    def write_value(self, frame, value):
+        write_inner(frame, self._frame_idx, value)
+
 
 class LocalFrameVarReadNode(_LocalVariableNode):
     def execute(self, frame):
@@ -205,3 +208,6 @@ class LocalFrameVarWriteNode(_LocalVariableWriteNode):
         val = self._expr.execute(frame)
         write_frame(frame, self._frame_idx, val)
         return val
+
+    def write_value(self, frame, value):
+        write_frame(frame, self._frame_idx, value)

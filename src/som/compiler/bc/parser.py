@@ -290,6 +290,7 @@ class Parser(ParserBase):
                     keyword == "ifFalse:ifTrue:"
                     and mgenc.inline_if_true_false(self, False)
                 )
+                or (keyword == "to:do:" and mgenc.inline_to_do(self))
             ):
                 return
 

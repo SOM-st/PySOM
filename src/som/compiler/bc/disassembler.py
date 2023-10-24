@@ -78,7 +78,13 @@ def dump_bytecode(m, b, indent=""):
             + ", context "
             + str(m.get_bytecode(b + 2))
         )
-    elif bytecode == Bytecodes.push_frame or bytecode == Bytecodes.pop_frame:
+    elif (
+        bytecode == Bytecodes.push_frame
+        or bytecode == Bytecodes.pop_frame
+        or bytecode == Bytecodes.nil_inner
+        or bytecode == Bytecodes.nil_frame
+        or bytecode == Bytecodes.nil_local
+    ):
         error_println("idx: " + str(m.get_bytecode(b + 1)))
     elif bytecode == Bytecodes.push_inner or bytecode == Bytecodes.pop_inner:
         error_println(

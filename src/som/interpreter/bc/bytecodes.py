@@ -5,8 +5,9 @@ class Bytecodes(object):
     # Bytecodes used by the Simple Object Machine (SOM)
     halt = 0
     dup = halt + 1
+    dup_second = dup + 1
 
-    push_frame = dup + 1
+    push_frame = dup_second + 1
     push_frame_0 = push_frame + 1
     push_frame_1 = push_frame_0 + 1
     push_frame_2 = push_frame_1 + 1
@@ -50,7 +51,10 @@ class Bytecodes(object):
     pop_field_0 = pop_field + 1
     pop_field_1 = pop_field_0 + 1
 
-    send_1 = pop_field_1 + 1
+    nil_frame = pop_field_1 + 1
+    nil_inner = nil_frame + 1
+
+    send_1 = nil_inner + 1
     send_2 = send_1 + 1
     send_3 = send_2 + 1
     send_n = send_3 + 1
@@ -76,13 +80,15 @@ class Bytecodes(object):
     jump_on_false_top_nil = jump_on_true_top_nil + 1
     jump_on_true_pop = jump_on_false_top_nil + 1
     jump_on_false_pop = jump_on_true_pop + 1
-    jump_backward = jump_on_false_pop + 1
+    jump_if_greater = jump_on_false_pop + 1
+    jump_backward = jump_if_greater + 1
     jump2 = jump_backward + 1
     jump2_on_true_top_nil = jump2 + 1
     jump2_on_false_top_nil = jump2_on_true_top_nil + 1
     jump2_on_true_pop = jump2_on_false_top_nil + 1
     jump2_on_false_pop = jump2_on_true_pop + 1
-    jump2_backward = jump2_on_false_pop + 1
+    jump2_if_greater = jump2_on_false_pop + 1
+    jump2_backward = jump2_if_greater + 1
 
     q_super_send_1 = jump2_backward + 1
     q_super_send_2 = q_super_send_1 + 1
@@ -93,8 +99,9 @@ class Bytecodes(object):
     push_argument = push_local + 1
     pop_local = push_argument + 1
     pop_argument = pop_local + 1
+    nil_local = pop_argument + 1
 
-    invalid = pop_argument + 1
+    invalid = nil_local + 1
 
 
 def is_one_of(bytecode, candidates):
@@ -150,12 +157,14 @@ JUMP_BYTECODES = [
     Bytecodes.jump_on_true_pop,
     Bytecodes.jump_on_false_pop,
     Bytecodes.jump_on_false_top_nil,
+    Bytecodes.jump_if_greater,
     Bytecodes.jump_backward,
     Bytecodes.jump2,
     Bytecodes.jump2_on_true_top_nil,
     Bytecodes.jump2_on_true_pop,
     Bytecodes.jump2_on_false_pop,
     Bytecodes.jump2_on_false_top_nil,
+    Bytecodes.jump2_if_greater,
     Bytecodes.jump2_backward,
 ]
 
@@ -177,6 +186,8 @@ RUN_TIME_ONLY_BYTECODES = [
     Bytecodes.pop_inner_0,
     Bytecodes.pop_inner_1,
     Bytecodes.pop_inner_2,
+    Bytecodes.nil_frame,
+    Bytecodes.nil_inner,
     Bytecodes.q_super_send_1,
     Bytecodes.q_super_send_2,
     Bytecodes.q_super_send_3,
@@ -198,6 +209,7 @@ NOT_EXPECTED_IN_BLOCK_BYTECODES = [
 _BYTECODE_LENGTH = [
     1,  # halt
     1,  # dup
+    1,  # dup_second
     3,  # push_frame
     3,  # push_frame_0
     3,  # push_frame_1
@@ -231,6 +243,8 @@ _BYTECODE_LENGTH = [
     3,  # pop_field
     1,  # pop_field_0
     1,  # pop_field_1
+    2,  # nil_frame
+    2,  # nil_inner
     2,  # send_1
     2,  # send_2
     2,  # send_3
@@ -251,12 +265,14 @@ _BYTECODE_LENGTH = [
     3,  # jump_on_false_top_nil
     3,  # jump_on_true_pop
     3,  # jump_on_false_pop
+    3,  # jump_if_greater
     3,  # jump_backward
     3,  # jump2
     3,  # jump2_on_true_top_nil
     3,  # jump2_on_false_top_nil
     3,  # jump2_on_true_pop
     3,  # jump2_on_false_pop
+    3,  # jump2_if_greater
     3,  # jump2_backward
     2,  # q_super_send_1
     2,  # q_super_send_2
@@ -267,6 +283,7 @@ _BYTECODE_LENGTH = [
     3,  # push_argument
     3,  # pop_local
     3,  # pop_argument
+    2,  # nil_local
 ]
 
 

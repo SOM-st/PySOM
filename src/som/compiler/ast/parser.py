@@ -25,6 +25,7 @@ from som.interpreter.ast.nodes.specialized.literal_if import (
     IfInlinedNode,
     IfElseInlinedNode,
 )
+from som.interpreter.ast.nodes.specialized.literal_to_do import ToDoInlined
 from som.interpreter.ast.nodes.specialized.literal_while import WhileInlinedNode
 from som.vm.symbols import symbol_for
 
@@ -72,7 +73,7 @@ class Parser(ParserBase):
         if not expressions:
             from som.vm.globals import nilObject
 
-            return LiteralNode(nilObject)
+            return LiteralNode(nilObject, self._get_source_section(coordinate))
         if len(expressions) == 1:
             return expressions[0]
 
@@ -291,6 +292,18 @@ class Parser(ParserBase):
         arg_body = arg_expr.get_method().inline(mgenc)
         return OrInlinedNode(receiver, arg_body, source)
 
+    @staticmethod
+    def _try_inlining_to_do(receiver, arguments, source, mgenc):
+        if not isinstance(arguments[1], BlockNode):
+            return None
+
+        block_method = arguments[1].get_method()
+        do_expr = block_method.inline(mgenc)
+        idx_arg = block_method.get_argument(1, 0)
+        return ToDoInlined(
+            receiver, arguments[0], do_expr, mgenc.get_inlined_local(idx_arg, 0), source
+        )
+
     def _keyword_message(self, mgenc, receiver):
         is_super_send = self._super_send
 
@@ -358,6 +371,12 @@ class Parser(ParserBase):
                     )
                     if inlined is not None:
                         return inlined
+                elif keyword == "to:do:":
+                    inlined = self._try_inlining_to_do(
+                        receiver, arguments, source, mgenc
+                    )
+                    if inlined is not None:
+                        return inlined
 
         selector = symbol_for(keyword)
 
@@ -400,8 +419,7 @@ class Parser(ParserBase):
         coord = self._lexer.get_source_coordinate()
         val = self._get_object_for_current_literal()
 
-        lit = LiteralNode(val)
-        self._assign_source(lit, coord)
+        lit = LiteralNode(val, self._get_source_section(coord))
         return lit
 
     def _get_object_for_current_literal(self):
