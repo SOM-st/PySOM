@@ -39,7 +39,7 @@ def _inst_var_at(rcvr, idx):
 
 def _inst_var_at_put(rcvr, idx, val):
     rcvr.set_field(idx.get_embedded_integer() - 1, val)
-    return val
+    return rcvr
 
 
 def _inst_var_named(rcvr, arg):
