@@ -52,8 +52,8 @@ jobs:
         run: |
           export PYTHON=python
           export PYTHONPATH=src
-          SOM_INTERP=AST pytest
-          SOM_INTERP=BC  pytest
+          SOM_INTERP=AST pytest tests
+          SOM_INTERP=BC  pytest tests
           SOM_INTERP=AST ./som.sh -cp Smalltalk TestSuite/TestHarness.som
           SOM_INTERP=BC  ./som.sh -cp Smalltalk TestSuite/TestHarness.som
           echo "[system exit: 0] value" | SOM_INTERP=AST ./som.sh -cp Smalltalk
@@ -63,7 +63,7 @@ jobs:
         if: matrix.id != 'basic'
         run: |
           export SOM_INTERP=${{ matrix.interp }}
-          PYTHONPATH=$PYTHONPATH:.pypy:src pytest
+          PYTHONPATH=$PYTHONPATH:.pypy:src pytest tests
           PYTHONPATH=$PYTHONPATH:.pypy ./som.sh -cp Smalltalk TestSuite/TestHarness.som
           PYTHONPATH=$PYTHONPATH:.pypy .pypy/rpython/bin/rpython --batch src/main_rpython.py
           ./som-${{ matrix.id }}-interp -cp Smalltalk TestSuite/TestHarness.som
