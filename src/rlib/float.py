@@ -3,17 +3,25 @@ import math
 INFINITY = 1e200 * 1e200
 
 try:
-    from rpython.rlib.rfloat import formatd, DTSF_ADD_DOT_0, DTSF_STR_PRECISION
+    from rpython.rlib.rfloat import formatd, DTSF_ADD_DOT_0
     from rpython.rlib.rfloat import round_double  # pylint: disable=unused-import
 
     def float_to_str(value):
-        return formatd(value, "g", DTSF_STR_PRECISION, DTSF_ADD_DOT_0)
+        s = formatd(value, "f", 14, DTSF_ADD_DOT_0)
+        s = s.rstrip('0')
+        if s.endswith('.'):
+            s += '0'
+        return s
 
 except ImportError:
     "NOT_RPYTHON"
 
     def float_to_str(value):
-        return str(value)
+        s = "%.14f" % value
+        s = s.rstrip('0')
+        if s.endswith('.'):
+            s += '0'
+        return s
 
     def round_double(value, _ndigits):
         # round() from libm, which is not available on all platforms!
