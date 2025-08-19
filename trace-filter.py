@@ -19,10 +19,10 @@ line_num = re.compile("^\\+\\d*:")
 long_number = re.compile("\\d{8,}")
 
 for line in fileinput.input():
-    filtered_line = re.sub(pointer, '(ptr)', line)
-    filtered_line = re.sub(target_token, 'TargetToken(tkn)', filtered_line)
-    filtered_line = re.sub(address, '[adr]', filtered_line)
-    filtered_line = re.sub(line_num, '', filtered_line)
-    filtered_line = re.sub(long_number, '(num)', filtered_line)
+    filtered_line = re.sub(pointer, "(ptr)", line)
+    filtered_line = re.sub(target_token, "TargetToken(tkn)", filtered_line)
+    filtered_line = re.sub(address, "[adr]", filtered_line)
+    filtered_line = re.sub(line_num, "", filtered_line)
+    filtered_line = re.sub(long_number, "(num)", filtered_line)
 
     sys.stdout.write(filtered_line)

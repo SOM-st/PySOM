@@ -124,21 +124,19 @@ def _greater_than_or_equal(left, right):
 
 
 def _left_shift(left, right):
-    assert isinstance(right, Integer)
+    if isinstance(left, Integer) and isinstance(right, Integer):
+        left_val = left.get_embedded_integer()
+        right_val = right.get_embedded_integer()
 
-    left_val = left.get_embedded_integer()
-    right_val = right.get_embedded_integer()
-
-    assert isinstance(left_val, int)
-    assert isinstance(right_val, int)
-
-    try:
-        if not (left_val == 0 or 0 <= right_val < LONG_BIT):
-            raise OverflowError
-        result = ovfcheck(left_val << right_val)
-        return Integer(result)
-    except OverflowError:
-        return BigInteger(bigint_from_int(left_val).lshift(right_val))
+        try:
+            if not (left_val == 0 or 0 <= right_val < LONG_BIT):
+                raise OverflowError
+            result = ovfcheck(left_val << right_val)
+            return Integer(result)
+        except OverflowError:
+            return BigInteger(bigint_from_int(left_val).lshift(right_val))
+    else:
+        assert False
 
 
 def _unsigned_right_shift(left, right):

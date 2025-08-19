@@ -30,9 +30,9 @@ def _has_global(_rcvr, arg):
     return falseObject
 
 
-def _global_put(_rcvr, argument, value):
+def _global_put(rcvr, argument, value):
     current_universe.set_global(argument, value)
-    return value
+    return rcvr
 
 
 def _print_string(rcvr, argument):
