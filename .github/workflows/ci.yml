@@ -23,6 +23,7 @@ jobs:
           - name: Basics Python 3.13
             python-version: 3.13
             id: basic
+            python-type: cpython
 
     steps:
       - name: Checkout
@@ -68,6 +69,19 @@ jobs:
           PYTHONPATH=$PYTHONPATH:.pypy .pypy/rpython/bin/rpython --batch src/main_rpython.py
           ./som-${{ matrix.id }}-interp -cp Smalltalk TestSuite/TestHarness.som
 
+      - name: Integration Tests
+        if: matrix.python-type == 'cpython'
+        run: |
+          pip install pyyaml
+          export VM=./som.sh
+          export CLASSPATH=Smalltalk
+          export TEST_EXPECTATIONS=./integration-tests.yml
+          export AWFY=Examples/AreWeFastYet/Core
+
+          export PYTHON=python
+          SOM_INTERP=AST pytest core-lib/IntegrationTests
+          SOM_INTERP=BC  pytest core-lib/IntegrationTests
+
       - name: SomSom Tests
         if: matrix.id != 'basic'
         run: |
@@ -78,13 +92,13 @@ jobs:
         run: |
           pip install black
           black --check --diff src tests
-        if: matrix.python-version == '3.11'
+        if: matrix.python-type == 'cpython'
 
       - name: Install and Run PyLint
         run: |
           pip install pylint
           pylint --init-hook="import sys; sys.setrecursionlimit(2000)" src tests
-        if: matrix.python-version == '3.11'
+        if: matrix.python-type == 'cpython'
 
 
 concurrency:
