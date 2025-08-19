@@ -8,9 +8,9 @@ try:
 
     def float_to_str(value):
         s = formatd(value, "f", 14, DTSF_ADD_DOT_0)
-        s = s.rstrip('0')
-        if s.endswith('.'):
-            s += '0'
+        s = s.rstrip("0")
+        if s.endswith("."):
+            s += "0"
         return s
 
 except ImportError:
@@ -18,9 +18,9 @@ except ImportError:
 
     def float_to_str(value):
         s = "%.14f" % value
-        s = s.rstrip('0')
-        if s.endswith('.'):
-            s += '0'
+        s = s.rstrip("0")
+        if s.endswith("."):
+            s += "0"
         return s
 
     def round_double(value, _ndigits):
