@@ -39,7 +39,7 @@ jobs:
       - name: Download PyPy Sources
         if: matrix.id != 'basic'
         run: |
-          export PYPYVER=v7.3.18
+          export PYPYVER=v7.3.23
           curl https://downloads.python.org/pypy/pypy2.7-${PYPYVER}-src.tar.bz2 -o pypy.tar.bz2
           tar -xjf pypy.tar.bz2
           mv pypy2.7-${PYPYVER}-src .pypy

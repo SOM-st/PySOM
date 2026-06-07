@@ -75,5 +75,5 @@ Thanks to GitHub Actions, all pull requests of this repository are automatically
 The current build status is: [![Build Status](https://github.com/SOM-st/PySOM/actions/workflows/ci.yml/badge.svg)](https://github.com/SOM-st/PySOM/actions)
 
  [SOM]: http://www.hpi.uni-potsdam.de/hirschfeld/projects/som/
- [SOMst]: https://travis-ci.org/SOM-st/
+ [SOMst]: https://som-st.github.io
  [RS]:  http://dx.doi.org/10.1016/j.cl.2005.02.003
